@@ -1,102 +1,126 @@
 import pya
-import math
+#fix to match python ver.
 
+module MyLib
 
-class Triangle(pya.PCellDeclarationHelper):
-  """
-  The PCell declaration for the triangle
-  """
+  include RBA
 
-  def __init__(self):
-
-    # Important: initialize the super class
-    super(Triangle, self).__init__()
-
-    # declare the parameters
-    self.param("l", self.TypeLayer, "Layer", default = pya.LayerInfo(1, 0))
-    self.param("n", self.TypeInt, "Number of points", default = 64) 
-    self.param("side_handle", self.TypeShape, "", default = pya.DPoint(0, 0))
-    self.param("side", self.TypeDouble, "Side Length", default = 50)
-        
-    # this hidden parameter is used to determine whether the radius has changed
-    # or the "s" handle has been moved
-    self.param("side_mem", self.TypeDouble, "Side Length Memory", default = 0.0, hidden = True)
-
-  def display_text_impl(self):
-    # Provide a descriptive text for the cell
-    return "Triangle(L=" + str(self.l) + ",Side=" + ('%.3f' % self.side) + ")"
+  # Remove any definition of our classes (this helps when 
+  # reexecuting this code after a change has been applied)
+  MyLib.constants.member?(:Triangle) && remove_const(:Triangle)
+  MyLib.constants.member?(:MyLib) && remove_const(:MyLib)
   
-  def coerce_parameters_impl(self):
+  # The PCell declaration for the triangle
+  class Triangle < PCellDeclarationHelper
   
-    # We employ coerce_parameters_impl to decide whether the handle or the 
-    # numeric parameter has changed (by comparing against the effective 
-    # radius ru) and set ru to the effective radius. We also update the 
-    # numerical value or the shape, depending on which on has not changed.
-    side_handle_l = None
-    if isinstance(self.side_handle, pya.DPoint): 
-      # compute distance in micron
-      side_handle_l = self.side_handle.distance(pya.DPoint(0, 0))
-    if abs(self.side-self.side_mem) < 1e-6:
-      self.side_mem = side_handle_l
-      self.side = side_handle_l 
-    else:
-      self.side_mem = self.side
-      self.side_handle = pya.DPoint(-self.side, 0)
+    include RBA
+
+    def initialize
+
+      # Important: initialize the super class
+      super
+
+      # declare the parameters
+      param(:l, TypeLayer, "Layer", :default => LayerInfo::new(1, 0))
+      param(:n, TypeInt, "Number of points", :default => 64)     
+      param(:side_handle, TypeShape, "", :default => DPoint::new(0, 0))
+      param(:side, TypeDouble, "Side-Length", :default => 0.1)
+      # this hidden parameter is used to determine whether the radius has changed
+      # or the "side" handle has been moved
+      param(:side_mem, TypeDouble, "Side-Length Memory", :default => 0.0, :hidden => true)
+
+    end
+  
+    def display_text_impl
+      # Provide a descriptive text for the cell
+      "Triangle(L=#{l.to_s},Side=#{'%.3f' % side.to_f})"
+    end
     
+    def coerce_parameters_impl
     
-    # n must be larger or equal than 4
-    if self.n <= 4:
-      self.n = 4
-  
-  def can_create_from_shape_impl(self):
-    # Implement the "Create PCell from shape" protocol: we can use any shape which 
-    # has a finite bounding box
-    return self.shape.is_box() or self.shape.is_polygon() or self.shape.is_path()
-  
-  def parameters_from_shape_impl(self):
-    # Implement the "Create PCell from shape" protocol: we set r and l from the shape's 
-    # bounding box width and layer
-    self.side = self.shape.bbox().width() * self.layout.dbu / 2
-    self.l = self.layout.get_info(self.layer)
-  
-  def transformation_from_shape_impl(self):
-    # Implement the "Create PCell from shape" protocol: we use the center of the shape's
-    # bounding box to determine the transformation
-    return pya.Trans(self.shape.bbox().center())
-  
-  def produce_impl(self):
-  
-    # This is the main part of the implementation: create the layout
-
-    # fetch the parameters
-    side_dbu = self.side / self.layout.dbu
+      # We employ coerce_parameters_impl to decide whether the handle or the 
+      # numeric parameter has changed (by comparing against the effective 
+      # radius ru) and set ru to the effective radius. We also update the 
+      # numerical value or the shape, depending on which on has not changed.
+      rs = nil
+      if s.is_a?(DPoint) 
+        # compute distance in micron
+        rs = s.distance(DPoint::new(0, 0))
+      end 
+      if rs && (r-ru).abs < 1e-6
+        set_ru rs
+        set_r rs 
+      else
+        set_ru r 
+        set_s DPoint::new(-r, 0)
+      end
+      
+      # n must be larger or equal than 4
+      n > 4 || (set_n 4)
+       
+    end
     
-    # compute the triangle
-    pts = [pya.Point.from_dpoint(pya.DPoint(0,0)),pya.Point.from_dpoint(pya.DPoint(0,side_dbu)),pya.Point.from_dpoint(pya.DPoint(side_dbu/2,(side_dbu/2)*math.sqrt(3)))]
+    def can_create_from_shape_impl
+      # Implement the "Create PCell from shape" protocol: we can use any shape which 
+      # has a finite bounding box
+      shape.is_box? || shape.is_polygon? || shape.is_path?
+    end
     
-    # create the shape
-    self.cell.shapes(self.l_layer).insert(pya.Polygon(pts))
+    def parameters_from_shape_impl
+      # Implement the "Create PCell from shape" protocol: we set r and l from the shape's 
+      # bounding box width and layer
+      set_r shape.bbox.width * layout.dbu / 2
+      set_l layout.get_info(layer)
+    end
+    
+    def transformation_from_shape_impl
+      # Implement the "Create PCell from shape" protocol: we use the center of the shape's
+      # bounding box to determine the transformation
+      Trans.new(shape.bbox.center)
+    end
+    
+    def produce_impl
+    
+      # This is the main part of the implementation: create the layout
 
-
-class MyLib(pya.Library):
-  """
-  The library where we will put the PCell into 
-  """
-
-  def __init__(self):
+      # fetch the parameters
+      ru_dbu = ru / layout.dbu
+      
+      # compute the circle
+      pts = []
+      da = Math::PI * 2 / n
+      n.times do |i|
+        pts.push(Point.from_dpoint(DPoint.new(ru_dbu * Math::cos(i * da), ru_dbu * Math::sin(i * da))))
+      end
+      
+      # create the shape
+      cell.shapes(l_layer).insert(Polygon.new(pts))
+      
+    end
   
-    # Set the description
-    self.description = "My First Library"
+  end
+  
+  # The library where we will put the PCell into 
+  class MyLib < Library
+  
+    def initialize  
     
-    # Create the PCell declarations
-    self.layout().register_pcell("Triangle", Triangle())
-    # That would be the place to put in more PCells ...
-    
-    # Register us with the name "MyLib".
-    # If a library with that name already existed, it will be replaced then.
-    self.register("MyLib")
-
-
-# Instantiate and register the library
-MyLib()
-
+      # Set the description
+      self.description = "My First Library"
+      
+      # Create the PCell declarations
+      layout.register_pcell("Circle", Circle::new)
+      # That would be the place to put in more PCells ...
+      
+      # Register us with the name "MyLib".
+      # If a library with that name already existed, it will be replaced then.
+      register("MyLib")
+      
+    end
+  
+  end
+  
+  # Instantiate and register the library
+  MyLib::new
+  
+end
