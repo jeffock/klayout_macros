@@ -97,9 +97,10 @@ class Triangle(pya.PCellDeclarationHelper):
 
     # fetch the parameters
     side_dbu = self.side / self.layout.dbu
+    h_side_dbu = side_dbu / 2.0
     
     # compute the triangle
-    pts = [pya.Point.from_dpoint(pya.DPoint(0,0)),pya.Point.from_dpoint(pya.DPoint(0,side_dbu)),pya.Point.from_dpoint(pya.DPoint(side_dbu/2,(side_dbu/2)*math.sqrt(3)))]
+    pts = [pya.Point.from_dpoint(pya.DPoint(0,0)),pya.Point.from_dpoint(pya.DPoint(side_dbu,0)),pya.Point.from_dpoint(pya.DPoint(h_side_dbu,h_side_dbu*math.sqrt(3)))]
     
     # create the shape
     self.cell.shapes(self.l_layer).insert(pya.Polygon(pts))

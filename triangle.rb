@@ -42,7 +42,7 @@ module MyLib
       # numeric parameter has changed (by comparing against the effective 
       # radius ru) and set ru to the effective radius. We also update the 
       # numerical value or the shape, depending on which on has not changed.
-      rs = nil
+      side_handle_l = nil
       if s.is_a?(DPoint) 
         # compute distance in micron
         rs = s.distance(DPoint::new(0, 0))
